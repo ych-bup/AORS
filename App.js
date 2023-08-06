@@ -149,6 +149,10 @@ export default function App() {
     })();
   }, []);
 
+  const markerOnClick = () => {
+    alert("hello");
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -161,7 +165,7 @@ export default function App() {
         <MapView style={styles.map} region={region}>
           {markers.map((coords) => (
             <>
-              <Marker coordinate={coords} />
+              <Marker onPress={markerOnClick} coordinate={coords}/>
               <Circle
                 center={coords}
                 radius={20}
