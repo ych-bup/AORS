@@ -165,7 +165,7 @@ export default function App() {
         <MapView style={styles.map} region={region}>
           {markers.map((coords) => (
             <>
-              <Marker onPress={markerOnClick} coordinate={coords}/>
+              <Marker onPress={setMsg(`${coords.latitude}`)} coordinate={coords}/>
               <Circle
                 center={coords}
                 radius={20}
