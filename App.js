@@ -136,7 +136,7 @@ export default function App() {
           setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}\n${location.latitude} / ${location.longitude}`);
         }
         setWeather(weatherCurrent);
-        setCldMsg((1-weatherCurrent.clouds)*100);
+        setCldMsg(((1-weatherCurrent.clouds)*100).toFixed(1));
         setTemperature(weatherCurrent.temp.toFixed(1))
       });
   };
@@ -208,9 +208,9 @@ export default function App() {
           nowLumen -= weatherCurrent.moonPhase;
         }
         nowLumen *= weatherCurrent.clouds;
-        setCldMsg((1-weatherCurrent.clouds)*100);
+        setCldMsg(((1-weatherCurrent.clouds)*100).toFixed(1));
         setTemperature(weatherCurrent.temp.toFixed(1));
-        console.log(weatherCurrent.temp);
+        console.log('온도' + weatherCurrent.temp);
 
         const obs = [];
         //console.log(weatherCurrent.startTime.toLocaleTimeString());
