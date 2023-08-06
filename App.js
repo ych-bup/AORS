@@ -13,7 +13,7 @@ export default function App() {
   const [weather, setWeather] = useState([]);
   const APP_ID = api.APP_ID;
   const T = 86400000;
-  const THRESHOLD = 0.0;
+  const THRESHOLD = 0.7;
   const isEmpty = (arr) => {
     return Object.keys(arr).length == 0;
   };
@@ -28,6 +28,7 @@ export default function App() {
     const doc = new GoogleSpreadsheet(api.SHEET, cred);
     // 구글 인증이 필요하다.
     doc.auth.apiKey = api.API_KEY;
+    console.log(api.API_KEY)
     await doc.loadInfo();
     return doc;
   }
