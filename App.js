@@ -34,7 +34,7 @@ export default function App() {
     const doc = new GoogleSpreadsheet(api.SHEET, cred);
     // 구글 인증이 필요하다
     doc.auth.apiKey = api.API_KEY;
-    console.log(api.API_KEY)
+    //console.log(api.API_KEY)
     await doc.loadInfo();
     return doc;
   }
@@ -62,19 +62,29 @@ export default function App() {
       startTime,
     };
   };
-  const dateToStr = (date) => {
-    return `${date.getHours()}:${date.getMinutes()}`;
-  };
-  const getBonus = (weather) => {
+  const getLightPolution = (location) => {
+    const url = `https://www2.lightpollutionmap.info/QueryRaster/?qk=MTY5MTQ3OTgwMTE1OTtpc3Vja2RpY2tzOik=&ql=viirs_2022&qt=point_t&qd=${location.longitude},${location.latitude}`;
+    return fetch(url)
+      .then(response => {
+        console.log(response);
+        return response.split(';').map(value => {
+          return Number(value);
+        });
+      });
+  }
+
+  //시간대에 따른 태양의 빛 방사량 수치화
+  const getBonus = (weather) => { //cos그래프 y축 이동(낮 시간 조절)
     return (
       ((weather.sunset.getTime() - weather.sunrise.getTime()) / T - 0.5) * 3
     );
   };
-  const dayCycle = (current_time, weather) => {
+  const dayCycle = (current_time, weather) => { //cos함수
     const middleTime = new Date(
       (weather.sunrise.getTime() + weather.sunset.getTime()) / 2
     );
     const x = (middleTime.getMinutes() * 60 + middleTime.getSeconds()) * 1000;
+    //console.log(x);
     const result = Math.cos(((current_time - x) / T) * Math.PI * 2);
     return result - getBonus(weather);
   };
@@ -133,10 +143,10 @@ export default function App() {
         }
         else {
           //setMsg(`complete : ${new Date(Math.min(...obs))} ${new Date(Math.max(...obs))}`);
-          setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}\n${location.latitude} / ${location.longitude}`);
+          setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}`);
         }
         setWeather(weatherCurrent);
-        setCldMsg(((1-weatherCurrent.clouds)*100).toFixed(1));
+        setCldMsg(((1 - weatherCurrent.clouds) * 100).toFixed(1));
         setTemperature(weatherCurrent.temp.toFixed(1))
       });
   };
@@ -171,7 +181,11 @@ export default function App() {
       console.log(sheet[0]._rawData);
       let markers = sheet.map(value => {
         const data = value._rawData;
-        return { latitude: data[1], longitude: data[2] };
+        const pos = { latitude: data[1], longitude: data[2] };
+        const light = getLightPolution(pos);
+        pos.light = light;
+        console.log(pos);
+        return pos;
       })
       setMsg('Getting weather data...');
       await callWeather(region);
@@ -208,7 +222,7 @@ export default function App() {
           nowLumen -= weatherCurrent.moonPhase;
         }
         nowLumen *= weatherCurrent.clouds;
-        setCldMsg(((1-weatherCurrent.clouds)*100).toFixed(1));
+        setCldMsg(((1 - weatherCurrent.clouds) * 100).toFixed(1));
         setTemperature(weatherCurrent.temp.toFixed(1));
         console.log('온도' + weatherCurrent.temp);
 
@@ -237,7 +251,7 @@ export default function App() {
           setMsg(`Can't observe\n최고점수: ${(maxLumen * 100).toFixed(1)} 현재 점수: ${(nowLumen * 100).toFixed(1)}`);
         }
         else {
-          setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}\n${location.latitude} / ${location.longitude}`);
+          setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}`);
         }
       });
   };
@@ -265,7 +279,7 @@ export default function App() {
         </View>
         <View style={styles.imageContainer}>
           <MapView style={styles.map} region={region}>
-            <Marker coordinate={region} pinColor='#0000FF' onSelect={() => {locationLumen(region)}}/>
+            <Marker coordinate={region} pinColor='#0000FF' onSelect={() => { locationLumen(region) }} />
             {markers.map((coords) => (
               <>
                 <Marker onSelect={() => locationLumen(coords)} coordinate={coords} />
@@ -281,7 +295,7 @@ export default function App() {
           </MapView>
         </View>
         <View style={styles.bottomText}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottomWidth: '1px', borderBottomColor: '#FFF', paddingHorizontal: '3%', paddingVertical: '2%' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottomWidth: '1px', borderBottomColor: '#FFF', paddingHorizontal: '3%', paddingVertical: '2%' }}>
             <View>
               <Text style={{ color: '#FFF', fontSize: 45 }}>{`${temperature}°C`}</Text>
             </View>
