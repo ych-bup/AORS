@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Component } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
-import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, Image } from 'react-native';
 import { Moon } from 'lunarphase-js';
 import * as Location from 'expo-location';
 import { GoogleSpreadsheet, GoogleSpreadsheetRow } from "google-spreadsheet";
@@ -10,22 +10,28 @@ import * as api from './api.json';
 
 export default function App() {
   const [msg, setMsg] = useState('없음');
-  const [rt, setRT] = useState('test');
-  const [locMsg, setLocMsg] = useState('0');
-  const [temperature, setTemperature] = useState('0');
-  const [cldMsg, setCldMsg] = useState('0');
+  const [rt, setRT] = useState('-');
+  const [locMsg, setLocMsg] = useState('-');
+  const [temperature, setTemperature] = useState('-');
+  const [cldMsg, setCldMsg] = useState('-');
   const [region, setRegion] = useState({ latitude: 37, longitude: 127 });
   const [markers, setMarkers] = useState([]);
   const [weather, setWeather] = useState([]);
+  const [currentLumen, setCurrentLumen] = useState([]);
+  const [windMsg, setWindMsg] = useState('-');
+  const [presMsg, setPresMsg] = useState('-');
+  const [humiMsg, setHumiMsg] = useState('-');
+  const [descMsg, setDescMsg] = useState('-');
+  const [rdate, setRdate] = useState('-');
   const APP_ID = api.APP_ID;
   const T = 86400000;
-  const THRESHOLD = 0.3;
+  const THRESHOLD = 0.65;
   const isEmpty = (arr) => {
     return Object.keys(arr).length == 0;
   };
   const readFirstSheetRow = async (doc) => {
     var sheet = doc.sheetBy[0]; // 첫번째 시티를 가져옵니다.
-    var rows = await sheet.getRows({ offset: 3, limit: 100 }); // 세 번째 row 부터 100개 row를 가져옵니다.
+    var rows = await sheet.getRows({ offset: 4, limit: 100 }); // 세 번째 row 부터 100개 row를 가져옵니다.
     rows.forEach((ele) => {
       console.log(ele._rawData[0], ele._rawData[1]) // 읽어온 rows 중 현재row에서 첫 번째 컬럼과 두 번째 컬럼을 출력합니다.
     });
@@ -54,26 +60,33 @@ export default function App() {
       clouds: 1 - current.clouds / 100,
       visibility: current.visibility / 1000,
       moonPhase: daily.moon_phase,
+      pressure: current.pressure,
+      windspeed: parseFloat(current.wind_speed).toFixed(2),
       time: new Date(current.dt * 1000),
       sunrise,
       sunset,
       moonrise,
       moonset,
       startTime,
+      description: current.weather[0].description,
     };
   };
-  const getLightPolution = (location) => {
-    const url = `https://www2.lightpollutionmap.info/QueryRaster/?qk=MTY5MTQ3OTgwMTE1OTtpc3Vja2RpY2tzOik=&ql=viirs_2022&qt=point_t&qd=${location.longitude},${location.latitude}`;
-    return fetch(url)
-      .then(response => {
-        console.log(response);
-        return response.split(';').map(value => {
-          return Number(value);
-        });
-      });
-  }
 
   //시간대에 따른 태양의 빛 방사량 수치화
+  const rgbToHex = (r, g, b) => {
+    /* 
+    ** 컬러값과 쉼표만 남기고 삭제하기. 
+    ** 쉼표(,)를 기준으로 분리해서, 배열에 담기. 
+    */
+    let rgb = [r, g, b];
+    rgb = rgb.map((x) => {
+      let str = x.toString(16);
+      if (str.length === 1) str = "0" + str;
+      return str;
+    });
+    return "#" + rgb.join("");
+  }
+
   const getBonus = (weather) => { //cos그래프 y축 이동(낮 시간 조절)
     return (
       ((weather.sunset.getTime() - weather.sunrise.getTime()) / T - 0.5) * 3
@@ -116,7 +129,6 @@ export default function App() {
           nowLumen -= weatherCurrent.moonPhase;
         }
         nowLumen *= weatherCurrent.clouds;
-
         const obs = [];
         //console.log(weatherCurrent.startTime.toLocaleTimeString());
         for (let ct = T / 2; ct < T + T / 2; ct += 60000) {
@@ -129,31 +141,38 @@ export default function App() {
             lumen -= weatherCurrent.moonPhase;
           }
           lumen *= weatherCurrent.clouds;
+          if (lumen >= maxLumen) {
+            maxLumen = lumen;
+            maxLumenCT = ctimestamp;
+          }
           if (lumen >= THRESHOLD) {
             obs.push(ctimestamp);
-            if (lumen >= maxLumen) {
-              maxLumen = lumen;
-              maxLumenCT = ctimestamp;
-            }
             //console.log(`Date: ${new Date(ctimestamp)}, lumen: ${lumen}`);
           }
         }
+        setCurrentLumen(maxLumen);
         if (isEmpty(obs)) {
-          setMsg(`Can't observe\n최고점수: ${(maxLumen * 100).toFixed(1)} 현재 점수: ${(nowLumen * 100).toFixed(1)}`);
+          setMsg(`관측 불가!\n최고점수: ${(maxLumen * 100).toFixed(1)} 현재 점수: ${(nowLumen * 100).toFixed(1)}`);
         }
         else {
           //setMsg(`complete : ${new Date(Math.min(...obs))} ${new Date(Math.max(...obs))}`);
-          setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}`);
+          setMsg(`최상의 컨디션: ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}`);
         }
         setWeather(weatherCurrent);
+        setWindMsg(weatherCurrent.windspeed);
+        setPresMsg(weatherCurrent.pressure);
+        setHumiMsg(weatherCurrent.humidity);
         setCldMsg(((1 - weatherCurrent.clouds) * 100).toFixed(1));
-        setTemperature(weatherCurrent.temp.toFixed(1))
+        setTemperature(weatherCurrent.temp.toFixed(1));
+        setDescMsg(weatherCurrent.description);
+        console.log(weatherCurrent.description);
       });
   };
 
-  useEffect(() => {
+  const clickHandler = () => {
     const timerId = setInterval(() => {
-      setRT((new Date()).toLocaleTimeString());
+      setRT(`${(new Date()).getHours()}:${(new Date()).getMinutes()}`);
+      setRdate(`${(new Date()).toLocaleDateString()}`);
     }, 1000);
 
     (async () => {
@@ -179,25 +198,27 @@ export default function App() {
       await place.loadCells("A2:C");
       const sheet = await place.getRows();
       console.log(sheet[0]._rawData);
-      let markers = sheet.map(value => {
-        const data = value._rawData;
-        const pos = { latitude: data[1], longitude: data[2] };
-        const light = getLightPolution(pos);
-        pos.light = light;
-        console.log(pos);
-        return pos;
-      })
       setMsg('Getting weather data...');
       await callWeather(region);
       // setMsg('loading...');
+      let markers = sheet.map(value => {
+        const data = value._rawData;
+        const lightPollution = parseFloat(data[3]);
+        const red = parseInt(lightPollution / 200 * 255);
+        const green = 255 - red;
+        const rgb = rgbToHex(red, green, 0);
+        const pos = { latitude: data[1], longitude: data[2], lightPollution: 200 - lightPollution, rgb };
+        return pos;
+      })
 
       setRegion(region);
-      setMarkers(markers);
+      setMarkers(markers.filter(val => (val.lightPollution / 10 * currentLumen) >= 8));
     })();
     // return function cleanup() {
     //   clearInterval(timerId);
     // };
-  }, []);
+  };
+  useEffect(() => clickHandler(), [])
 
   const locationLumen = async (location) => { //onSelect 함수
     console.log(`${location.latitude} / ${location.longitude}`);
@@ -222,8 +243,13 @@ export default function App() {
           nowLumen -= weatherCurrent.moonPhase;
         }
         nowLumen *= weatherCurrent.clouds;
+        setWindMsg(weatherCurrent.windspeed);
+        setPresMsg(weatherCurrent.pressure);
+        setHumiMsg(weatherCurrent.humidity);
         setCldMsg(((1 - weatherCurrent.clouds) * 100).toFixed(1));
         setTemperature(weatherCurrent.temp.toFixed(1));
+        setDescMsg(weatherCurrent.description);
+        console.log(weatherCurrent.description);
         console.log('온도' + weatherCurrent.temp);
 
         const obs = [];
@@ -238,20 +264,21 @@ export default function App() {
             lumen -= weatherCurrent.moonPhase;
           }
           lumen *= weatherCurrent.clouds;
+          if (lumen >= maxLumen) {
+            maxLumen = lumen;
+            maxLumenCT = ctimestamp;
+          }
           if (lumen >= THRESHOLD) {
             obs.push(ctimestamp);
-            if (lumen >= maxLumen) {
-              maxLumen = lumen;
-              maxLumenCT = ctimestamp;
-            }
             //console.log(`Date: ${new Date(ctimestamp)}, lumen: ${lumen}`);
           }
         }
+        setCurrentLumen(maxLumen);
         if (isEmpty(obs)) {
-          setMsg(`Can't observe\n최고점수: ${(maxLumen * 100).toFixed(1)} 현재 점수: ${(nowLumen * 100).toFixed(1)}`);
+          setMsg(`관측 불가!\n최고점수: ${(maxLumen * 100).toFixed(1)} 현재 점수: ${(nowLumen * 100).toFixed(1)}`);
         }
         else {
-          setMsg(`최상의 컨디션 : ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}`);
+          setMsg(`최상의 컨디션: ${(new Date(Math.max(maxLumenCT))).toLocaleTimeString()}\n현재 점수: ${(nowLumen * 100).toFixed(1)} 최고점수: ${(maxLumen * 100).toFixed(1)}`);
         }
       });
   };
@@ -263,14 +290,18 @@ export default function App() {
           <View>
             <Text style={{ color: '#FFF', fontSize: 35 }}>{`${Moon.lunarPhaseEmoji()}`}</Text>
           </View>
-          <View>
-            <Text style={{ color: '#FFF', fontSize: 30 }}>{`${rt}`}</Text>
+          <View style={styles.verticalLine}></View>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ color: '#FFF', fontSize: 13 }}>{`${rdate}`}</Text>
+            <Text style={{ color: '#FFF', fontSize: 32 }}>{`${rt}`}</Text>
           </View>
+          <View style={styles.verticalLine}></View>
           <View>
             <Text style={{ color: '#FFF' }}>
               {`월출 ${(new Date(weather?.moonrise)).getHours()}:${(new Date(weather?.moonrise)).getMinutes()}\n월몰 ${(new Date(weather?.moonset)).getHours()}:${(new Date(weather?.moonset)).getMinutes()}`}
             </Text>
           </View>
+          <View style={styles.verticalLine}></View>
           <View>
             <Text style={{ color: '#FFF' }}>
               {`일출 ${(new Date(weather?.sunrise)).getHours()}:${(new Date(weather?.sunrise)).getMinutes()}\n일몰 ${(new Date(weather?.sunset)).getHours()}:${(new Date(weather?.sunset)).getMinutes()}`}
@@ -287,8 +318,8 @@ export default function App() {
                   center={coords}
                   radius={20}
                   strokeWidth={2}
-                  strokeColor="#3399ff"
-                  fillColor="#80bfff9f"
+                  strokeColor={coords.rgb}
+                  fillColor={coords.rgb + '9f'}
                 />
               </>
             ))}
@@ -303,11 +334,22 @@ export default function App() {
               <Text style={{ color: '#FFF', fontSize: 15 }}>{`${locMsg}`}</Text>
             </View>
           </View>
-          <View style={{ width: '100%', paddingHorizontal: '3%', paddingVertical: '2%', flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ color: '#FFF' }}>{`Clouds : ${cldMsg}%`}</Text>
-            <Text style={{ color: '#FFF', alignContent: 'center' }}>{`${msg}`}</Text>
+          <View style={{ width: '100%', paddingHorizontal: '3%', paddingVertical: '2%', flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: '1px', borderBottomColor: '#FFF' }}>
+            <Text style={{ color: '#FFF' }}>{`Clouds: ${cldMsg}%\nNow: ${descMsg}`}</Text>
+            <Text style={{ color: '#FFF', alignContent: 'center', textAlign: 'right' }}>{`${msg}`}</Text>
+          </View>
+          <View style={{ width: '100%', paddingHorizontal: '3%', paddingVertical: '2%', flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: '1px', borderBottomColor: '#FFF' }}>
+            <Text style={{ color: '#FFF' }}>{`Wind: ${windMsg}m/s`}</Text>
+            <Text style={{ color: '#FFF' }}>{`Pressure: ${presMsg}hPa`}</Text>
+            <Text style={{ color: '#FFF' }}>{`Humidity: ${humiMsg}%`}</Text>
           </View>
         </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={clickHandler}
+          style={styles.touchableOpacityStyle}>
+          <Image source={require('./assets/refresh_icon.png')} style={styles.floatingButtonStyle} />
+        </TouchableOpacity>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -325,8 +367,13 @@ const styles = StyleSheet.create({
     padding: '3%',
     flexDirection: 'row',
   },
-  imageContainer: {
+  verticalLine: {
     height: '70%',
+    width: 1,
+    backgroundColor: '#909090',
+  },
+  imageContainer: {
+    height: '65%',
   },
   map: {
     width: '100%',
@@ -334,6 +381,21 @@ const styles = StyleSheet.create({
   },
   bottomText: {
     alignItems: 'center',
-    height: '20%',
+    height: '25%',
+  },
+  touchableOpacityStyle: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 250,
+  },
+  floatingButtonStyle: {
+    resizeMode: 'contain',
+    width: 50,
+    height: 50,
+    //backgroundColor:'black'
   },
 });
