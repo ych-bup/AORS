@@ -72,12 +72,7 @@ export default function App() {
     };
   };
 
-  //시간대에 따른 태양의 빛 방사량 수치화
   const rgbToHex = (r, g, b) => {
-    /* 
-    ** 컬러값과 쉼표만 남기고 삭제하기. 
-    ** 쉼표(,)를 기준으로 분리해서, 배열에 담기. 
-    */
     let rgb = [r, g, b];
     rgb = rgb.map((x) => {
       let str = x.toString(16);
@@ -86,7 +81,7 @@ export default function App() {
     });
     return "#" + rgb.join("");
   }
-
+  //시간대에 따른 태양의 빛 방사량 수치화
   const getBonus = (weather) => { //cos그래프 y축 이동(낮 시간 조절)
     return (
       ((weather.sunset.getTime() - weather.sunrise.getTime()) / T - 0.5) * 3
@@ -212,7 +207,8 @@ export default function App() {
       })
 
       setRegion(region);
-      setMarkers(markers.filter(val => (val.lightPollution / 10 * currentLumen) >= 8));
+      // setMarkers(markers.filter(val => (val.lightPollution / 10 * currentLumen) >= 8));
+      setMarkers(markers);
     })();
     // return function cleanup() {
     //   clearInterval(timerId);
